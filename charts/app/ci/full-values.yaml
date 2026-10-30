@@ -1,0 +1,27 @@
+global: {domain: sirius.example.ts.net, hostIP: 100.64.0.1, timezone: Europe/Paris}
+image: {repository: toufik142/agent-runtime, tag: "1.2.3"}
+ports:
+  - {name: http, port: 8000, hostPort: 8000}
+env:
+  TOOLBOX_URL: http://agent-toolbox:8001/mcp
+  WEB_DOCS: true
+  ORIGIN: "https://{{ .Values.global.domain }}"
+  DB_URI: "mongodb://$(MONGO_USER):$(MONGO_PASSWORD)@mongodb:27017"
+secretEnv:
+  MONGO_USER: {secret: mongodb, key: username}
+  MONGO_PASSWORD: {secret: mongodb, key: password}
+probes:
+  readiness: {httpGet: {path: /actuator/health/readiness, port: http}}
+persistence:
+  sqlite: {mountPath: /data/sqlite, size: 1Gi}
+configFiles:
+  dash: {mountPath: /etc/dash, files: {a.json: '{"legend": "{{instance}}"}'}}
+metrics: {port: 8000}
+networkPolicy:
+  ingress:
+    - from: [{podSelector: {matchLabels: {app.kubernetes.io/name: caddy}}}]
+jobs:
+  sync: {command: [sh, -c, "echo hi"], configFiles: [dash], persistence: [sqlite]}
+cronJobs:
+  backup: {schedule: "0 3 * * *", command: [sh, -c, "echo backup"], persistence: [sqlite]}
+rbac: {rules: [{apiGroups: [""], resources: [pods], verbs: [get, list]}]}

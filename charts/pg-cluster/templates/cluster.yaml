@@ -1,0 +1,65 @@
+{{- $name := include "homelab.name" . -}}
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "homelab.labels" . | nindent 4 }}
+  annotations:
+    # Uninstalling the release leaves the cluster and its data in place: data is deleted on purpose only
+    helm.sh/resource-policy: keep
+spec:
+  instances: {{ .Values.instances }}
+  imageName: {{ .Values.imageName | quote }}
+  # One instance: the operator restarts it in place for updates instead of waiting for a switchover
+  primaryUpdateStrategy: unsupervised
+  enableSuperuserAccess: {{ .Values.superuserAccess }}
+  bootstrap:
+    initdb:
+      database: {{ .Values.database }}
+      owner: {{ .Values.owner }}
+  storage:
+    size: {{ .Values.storage.size }}
+    {{- with .Values.storage.storageClass }}
+    storageClass: {{ . }}
+    {{- end }}
+  postgresql:
+    parameters:
+      {{- $parameters := dict "timezone" .Values.global.timezone "log_timezone" .Values.global.timezone }}
+      {{- toYaml (mergeOverwrite $parameters (deepCopy (.Values.parameters | default dict))) | nindent 6 }}
+  {{- with .Values.resources }}
+  resources:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.roles }}
+  managed:
+    roles:
+      {{- toYaml . | nindent 6 }}
+  {{- end }}
+  inheritedMetadata:
+    labels:
+      app.kubernetes.io/part-of: homelab
+    {{- if .Values.metrics }}
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "9187"
+      prometheus.io/path: /metrics
+    {{- end }}
+{{- range .Values.databases }}
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: {{ printf "%s-%s" $name .name | trunc 63 | trimSuffix "-" }}
+  labels:
+    {{- include "homelab.labels" $ | nindent 4 }}
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  cluster:
+    name: {{ $name }}
+  name: {{ .name }}
+  owner: {{ required "databases[].owner is required" .owner }}
+  ensure: present
+  databaseReclaimPolicy: retain
+{{- end }}

@@ -1,0 +1,128 @@
+# Every key an app or service can set. An app's devops/helm/values.yml sets only what it needs;
+# the server adds `global` (and its own overrides) at deploy time.
+
+# Set by the server for every release (helmfile): the gateway's name and the Tailscale address
+# that published ports listen on. Values below can use them, e.g. "https://{{ .Values.global.domain }}".
+global:
+  domain: ""
+  hostIP: ""
+  timezone: UTC
+
+image:
+  repository: ""
+  # Empty: the chart's appVersion, i.e. the version CI published with the chart
+  tag: ""
+  pullPolicy: IfNotPresent
+
+# Deployment, or StatefulSet for a database-like service that keeps one volume per pod
+kind: Deployment
+replicas: 1
+
+command: []
+args: []
+
+# Plain environment variables (rendered with tpl). Never put secrets here.
+env: {}
+#  LOG_LEVEL: INFO
+
+# Variables read from Kubernetes Secrets created on the server (scripts/secrets.sh)
+secretEnv: {}
+#  LLM_API_KEY: { secret: agent-runtime, key: llm-api-key }
+
+# Container ports. The Service exposes them all inside the cluster. hostPort publishes one on the
+# server's Tailscale address (global.hostIP) only.
+ports: []
+#  - name: http
+#    port: 8000
+#    hostPort: 8000
+
+service:
+  enabled: true
+
+# Raw Kubernetes probes for the main container
+probes: {}
+#  readiness:
+#    httpGet: { path: /actuator/health/readiness, port: http }
+#  liveness:
+#    httpGet: { path: /actuator/health/liveness, port: http }
+#  startup:
+#    httpGet: { path: /actuator/health, port: http }
+#    failureThreshold: 30
+
+resources: {}
+#  requests: { cpu: 100m, memory: 128Mi }
+#  limits: { memory: 512Mi }
+
+# Volumes that survive restarts, upgrades and uninstalls (local-path storage on the server)
+persistence: {}
+#  data:
+#    mountPath: /data
+#    size: 1Gi
+
+# Read-only files mounted from a ConfigMap. Changing one restarts the pod.
+# template: true renders the files with tpl (off by default: dashboards contain {{ }}).
+configFiles: {}
+#  config:
+#    mountPath: /etc/myapp
+#    files:
+#      config.yml: |
+#        key: value
+
+# Pod and container security. Defaults: RuntimeDefault seccomp, no privilege escalation,
+# every capability dropped; what you set here is merged over them.
+podSecurityContext: {}
+securityContext: {}
+
+# Kubernetes API access. Without rules the pod gets no service account token.
+serviceAccount:
+  automount: false
+rbac:
+  # Rules in the release's namespace (Role)
+  rules: []
+  # Rules across the cluster (ClusterRole)
+  clusterRules: []
+
+# Who may connect to the pod and where it may connect, as raw NetworkPolicy rules.
+# Unset: no restriction. Set ingress and/or egress: everything else in that direction is denied.
+networkPolicy: {}
+#  ingress:
+#    - from:
+#        - podSelector: { matchLabels: { app.kubernetes.io/name: caddy } }
+#  egress:
+#    - to:
+#        - podSelector: { matchLabels: { app.kubernetes.io/name: otel-collector } }
+
+# Prometheus scrapes the pod when set
+metrics: {}
+#  port: 8080
+#  path: /metrics
+
+# Jobs run on every install and upgrade, after the main workload is ready (Helm hooks).
+# Each takes the same keys as the main container: image, command, args, env, secretEnv,
+# configFiles (names of the configFiles above to mount), resources.
+jobs: {}
+#  sync:
+#    command: [/bin/bash, /scripts/sync.sh]
+#    configFiles: [scripts]
+
+# Scheduled jobs; same keys as jobs, plus schedule and persistence (names of the persistence
+# volumes above to mount).
+cronJobs: {}
+#  backup:
+#    schedule: "0 3 * * *"
+
+podAnnotations: {}
+podLabels: {}
+nodeSelector: {}
+tolerations: []
+terminationGracePeriodSeconds: 30
+# Rolling update by default; Recreate when the pod has volumes or host ports
+strategy: {}
+
+initContainers: []
+extraContainers: []
+extraVolumes: []
+extraVolumeMounts: []
+
+# Other Kubernetes objects deployed with the release (rendered with tpl)
+extraManifests: []

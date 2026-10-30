@@ -1,0 +1,40 @@
+# Set by the server for every release (helmfile)
+global:
+  timezone: UTC
+
+instances: 1
+imageName: ghcr.io/cloudnative-pg/postgresql:18.6-standard-trixie
+
+storage:
+  size: 20Gi
+  storageClass: ""
+
+# Created with the cluster; the operator generates its owner's password in Secret <release>-app
+database: homelab
+owner: homelab
+
+# Secret <release>-superuser with the postgres password, for migrations and admin shells
+superuserAccess: true
+
+# postgresql.conf settings
+parameters: {}
+#  shared_buffers: 1GB
+
+resources: {}
+#  requests: { cpu: 250m, memory: 1Gi }
+#  limits: { memory: 4Gi }
+
+# Roles the operator creates and keeps as declared (attributes, memberships, password).
+# passwordSecret: a kubernetes.io/basic-auth Secret with username = the role and password.
+roles: []
+#  - name: keycloak
+#    login: true
+#    passwordSecret: { name: pg-role-keycloak }
+
+# Databases the operator creates (kept when removed from this list)
+databases: []
+#  - name: keycloak
+#    owner: keycloak
+
+# Prometheus scrapes the instances' built-in exporter (port 9187)
+metrics: true

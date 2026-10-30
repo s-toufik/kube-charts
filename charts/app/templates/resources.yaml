@@ -1,0 +1,157 @@
+{{- $name := include "homelab.name" . -}}
+{{- if and .Values.service.enabled .Values.ports }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "homelab.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "homelab.selectorLabels" . | nindent 4 }}
+  ports:
+    {{- range .Values.ports }}
+    - name: {{ .name }}
+      port: {{ .port }}
+      targetPort: {{ .name }}
+      protocol: {{ .protocol | default "TCP" }}
+    {{- end }}
+{{- end }}
+{{- range $key := keys (.Values.configFiles | default dict) | sortAlpha }}
+{{- $config := index $.Values.configFiles $key }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "app.configMapName" (dict "root" $ "name" $key) }}
+  labels:
+    {{- include "homelab.labels" $ | nindent 4 }}
+{{- $data := dict }}
+{{- range $file, $content := $config.files | default dict }}
+{{- if $config.template }}
+{{- $_ := set $data $file (tpl (toString $content) $) }}
+{{- else }}
+{{- $_ := set $data $file (toString $content) }}
+{{- end }}
+{{- end }}
+data:
+  {{- toYaml $data | nindent 2 }}
+{{- end }}
+{{- if ne .Values.kind "StatefulSet" }}
+{{- range $key := keys (.Values.persistence | default dict) | sortAlpha }}
+{{- $volume := index $.Values.persistence $key }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "app.claimName" (dict "root" $ "name" $key) }}
+  labels:
+    {{- include "homelab.labels" $ | nindent 4 }}
+  annotations:
+    # Kept when the release is uninstalled: data is deleted on purpose only
+    helm.sh/resource-policy: keep
+spec:
+  accessModes: [{{ $volume.accessMode | default "ReadWriteOnce" }}]
+  {{- with $volume.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ required (printf "persistence.%s.size is required" $key) $volume.size }}
+{{- end }}
+{{- end }}
+{{- with .Values.networkPolicy }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "homelab.labels" $ | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "homelab.selectorLabels" $ | nindent 6 }}
+  policyTypes:
+    {{- if hasKey . "ingress" }}
+    - Ingress
+    {{- end }}
+    {{- if hasKey . "egress" }}
+    - Egress
+    {{- end }}
+  {{- if hasKey . "ingress" }}
+  ingress:
+    {{- include "homelab.tpl" (dict "value" (.ingress | default list) "root" $) | nindent 4 }}
+  {{- end }}
+  {{- if hasKey . "egress" }}
+  egress:
+    {{- include "homelab.tpl" (dict "value" (.egress | default list) "root" $) | nindent 4 }}
+  {{- end }}
+{{- end }}
+{{- if include "app.serviceAccountName" . }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "homelab.labels" . | nindent 4 }}
+automountServiceAccountToken: false
+{{- end }}
+{{- with .Values.rbac.rules }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "homelab.labels" $ | nindent 4 }}
+rules:
+  {{- toYaml . | nindent 2 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "homelab.labels" $ | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ $name }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $name }}
+    namespace: {{ $.Release.Namespace }}
+{{- end }}
+{{- with .Values.rbac.clusterRules }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ $.Release.Namespace }}-{{ $name }}
+  labels:
+    {{- include "homelab.labels" $ | nindent 4 }}
+rules:
+  {{- toYaml . | nindent 2 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ $.Release.Namespace }}-{{ $name }}
+  labels:
+    {{- include "homelab.labels" $ | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ $.Release.Namespace }}-{{ $name }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ $name }}
+    namespace: {{ $.Release.Namespace }}
+{{- end }}
+{{- range .Values.extraManifests }}
+---
+{{ include "homelab.tpl" (dict "value" . "root" $) }}
+{{- end }}

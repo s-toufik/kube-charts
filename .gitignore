@@ -1,0 +1,6 @@
+# Dependencies vendored by `helm dependency build` (CI rebuilds them from Chart.lock)
+charts/*/charts/
+# Packages built by make package / scripts/package-app.sh
+dist/
+.DS_Store
+.idea/

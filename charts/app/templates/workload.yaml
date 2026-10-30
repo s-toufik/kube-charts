@@ -1,0 +1,81 @@
+{{- $kind := .Values.kind -}}
+{{- if not (has $kind (list "Deployment" "StatefulSet")) -}}
+{{- fail (printf "kind must be Deployment or StatefulSet, not %q" $kind) -}}
+{{- end -}}
+{{- $configNames := keys (.Values.configFiles | default dict) | sortAlpha -}}
+{{- $persistenceNames := keys (.Values.persistence | default dict) | sortAlpha -}}
+{{- $hostPorts := false -}}
+{{- range .Values.ports }}{{ if .hostPort }}{{ $hostPorts = true }}{{ end }}{{ end -}}
+apiVersion: apps/v1
+kind: {{ $kind }}
+metadata:
+  name: {{ include "homelab.name" . }}
+  labels:
+    {{- include "homelab.labels" . | nindent 4 }}
+  annotations:
+    # Restarts the pods when a Secret or ConfigMap they use changes
+    reloader.stakater.com/auto: "true"
+spec:
+  replicas: {{ .Values.replicas }}
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      {{- include "homelab.selectorLabels" . | nindent 6 }}
+  {{- if eq $kind "StatefulSet" }}
+  serviceName: {{ include "homelab.name" . }}
+  {{- else if .Values.strategy }}
+  strategy:
+    {{- toYaml .Values.strategy | nindent 4 }}
+  {{- else if or $persistenceNames $hostPorts }}
+  # The old pod must free its volume or host port before the new one starts
+  strategy:
+    type: Recreate
+  {{- end }}
+  template:
+    metadata:
+      labels:
+        {{- include "homelab.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        checksum/config: {{ include "app.configChecksum" . }}
+        {{- with .Values.metrics }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: {{ required "metrics.port is required" .port | quote }}
+        prometheus.io/path: {{ .path | default "/metrics" | quote }}
+        {{- end }}
+        {{- with .Values.podAnnotations }}
+        {{- include "homelab.tpl" (dict "value" . "root" $) | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- include "app.podSettings" . | trim | nindent 6 }}
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      {{- with .Values.initContainers }}
+      initContainers:
+        {{- include "homelab.tpl" (dict "value" . "root" $) | nindent 8 }}
+      {{- end }}
+      containers:
+        {{- include "app.container" (dict "root" . "name" (include "homelab.name" .) "spec" .Values "configFiles" $configNames "persistence" $persistenceNames "volumeMounts" .Values.extraVolumeMounts) | nindent 8 }}
+        {{- with .Values.extraContainers }}
+        {{- include "homelab.tpl" (dict "value" . "root" $) | nindent 8 }}
+        {{- end }}
+      {{- include "app.volumes" (dict "root" . "configFiles" $configNames "persistence" $persistenceNames "claimTemplates" (eq $kind "StatefulSet") "extra" .Values.extraVolumes) | nindent 6 }}
+  {{- if and (eq $kind "StatefulSet") $persistenceNames }}
+  volumeClaimTemplates:
+    {{- range $name := $persistenceNames }}
+    {{- $volume := index $.Values.persistence $name }}
+    - metadata:
+        name: data-{{ $name }}
+        labels:
+          {{- include "homelab.selectorLabels" $ | nindent 10 }}
+      spec:
+        accessModes: [{{ $volume.accessMode | default "ReadWriteOnce" }}]
+        {{- with $volume.storageClass }}
+        storageClassName: {{ . }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ required (printf "persistence.%s.size is required" $name) $volume.size }}
+    {{- end }}
+  {{- end }}

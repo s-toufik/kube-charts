@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "definitions": {
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "repository": { "type": "string" },
+        "tag": { "type": ["string", "number"] },
+        "pullPolicy": { "enum": ["Always", "IfNotPresent", "Never"] }
+      }
+    },
+    "env": {
+      "type": "object",
+      "additionalProperties": { "type": ["string", "number", "boolean", "null"] }
+    },
+    "secretEnv": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["secret", "key"],
+        "properties": {
+          "secret": { "type": "string", "minLength": 1 },
+          "key": { "type": "string", "minLength": 1 },
+          "optional": { "type": "boolean" }
+        }
+      }
+    },
+    "stringList": { "type": "array", "items": { "type": "string" } },
+    "job": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schedule": { "type": "string" },
+        "hook": { "type": "string" },
+        "hookWeight": { "type": ["integer", "string"] },
+        "image": { "$ref": "#/definitions/image" },
+        "command": { "type": "array" },
+        "args": { "type": "array" },
+        "workingDir": { "type": "string" },
+        "env": { "$ref": "#/definitions/env" },
+        "secretEnv": { "$ref": "#/definitions/secretEnv" },
+        "resources": { "type": "object" },
+        "securityContext": { "type": "object" },
+        "configFiles": { "$ref": "#/definitions/stringList" },
+        "persistence": { "$ref": "#/definitions/stringList" },
+        "volumes": { "type": "array" },
+        "volumeMounts": { "type": "array" },
+        "backoffLimit": { "type": "integer", "minimum": 0 },
+        "activeDeadlineSeconds": { "type": "integer", "minimum": 1 }
+      }
+    }
+  },
+  "properties": {
+    "homelab-lib": { "type": "object" },
+    "global": {
+      "type": "object",
+      "properties": {
+        "domain": { "type": "string" },
+        "hostIP": { "type": "string" },
+        "timezone": { "type": "string" }
+      }
+    },
+    "image": { "$ref": "#/definitions/image" },
+    "kind": { "enum": ["Deployment", "StatefulSet"] },
+    "replicas": { "type": "integer", "minimum": 0 },
+    "command": { "type": "array" },
+    "args": { "type": "array" },
+    "workingDir": { "type": "string" },
+    "env": { "$ref": "#/definitions/env" },
+    "secretEnv": { "$ref": "#/definitions/secretEnv" },
+    "ports": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "port"],
+        "properties": {
+          "name": { "type": "string", "pattern": "^[a-z0-9]([-a-z0-9]{0,13}[a-z0-9])?$" },
+          "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+          "hostPort": { "type": "integer", "minimum": 1, "maximum": 65535 },
+          "protocol": { "enum": ["TCP", "UDP"] }
+        }
+      }
+    },
+    "service": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "enabled": { "type": "boolean" } }
+    },
+    "probes": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "startup": { "type": "object" },
+        "readiness": { "type": "object" },
+        "liveness": { "type": "object" }
+      }
+    },
+    "resources": { "type": "object" },
+    "persistence": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["mountPath", "size"],
+        "properties": {
+          "mountPath": { "type": "string" },
+          "subPath": { "type": "string" },
+          "size": { "type": "string" },
+          "storageClass": { "type": "string" },
+          "accessMode": { "enum": ["ReadWriteOnce", "ReadWriteOncePod", "ReadWriteMany"] }
+        }
+      }
+    },
+    "configFiles": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["mountPath", "files"],
+        "properties": {
+          "mountPath": { "type": "string" },
+          "template": { "type": "boolean" },
+          "files": { "type": "object", "additionalProperties": { "type": "string" } }
+        }
+      }
+    },
+    "podSecurityContext": { "type": "object" },
+    "securityContext": { "type": "object" },
+    "serviceAccount": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": { "automount": { "type": "boolean" } }
+    },
+    "rbac": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "rules": { "type": "array" },
+        "clusterRules": { "type": "array" }
+      }
+    },
+    "networkPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ingress": { "type": ["array", "null"] },
+        "egress": { "type": ["array", "null"] }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "port": { "type": ["integer", "string"] },
+        "path": { "type": "string" }
+      }
+    },
+    "jobs": { "type": "object", "additionalProperties": { "$ref": "#/definitions/job" } },
+    "cronJobs": { "type": "object", "additionalProperties": { "$ref": "#/definitions/job" } },
+    "podAnnotations": { "type": "object" },
+    "podLabels": { "type": "object" },
+    "nodeSelector": { "type": "object" },
+    "tolerations": { "type": "array" },
+    "terminationGracePeriodSeconds": { "type": "integer", "minimum": 0 },
+    "strategy": { "type": "object" },
+    "initContainers": { "type": "array" },
+    "extraContainers": { "type": "array" },
+    "extraVolumes": { "type": "array" },
+    "extraVolumeMounts": { "type": "array" },
+    "extraManifests": { "type": "array" }
+  }
+}

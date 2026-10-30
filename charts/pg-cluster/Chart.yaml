@@ -1,0 +1,10 @@
+apiVersion: v2
+name: pg-cluster
+description: A PostgreSQL cluster run by the CloudNativePG operator, with its roles and databases declared
+type: application
+version: 0.1.0
+appVersion: "18.6"
+dependencies:
+  - name: homelab-lib
+    version: 0.1.0
+    repository: file://../homelab-lib

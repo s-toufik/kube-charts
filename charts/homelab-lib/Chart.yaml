@@ -1,0 +1,5 @@
+apiVersion: v2
+name: homelab-lib
+description: Shared helpers for the homelab charts (names, labels, images, env, secure defaults)
+type: library
+version: 0.1.0

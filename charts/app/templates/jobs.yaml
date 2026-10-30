@@ -1,0 +1,68 @@
+{{- $root := . -}}
+{{- range $key := keys (.Values.jobs | default dict) | sortAlpha }}
+{{- $job := index $.Values.jobs $key }}
+---
+# Runs on every install and upgrade once the workload is ready; the last run stays for its logs
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ printf "%s-%s" (include "homelab.name" $root) $key | trunc 63 | trimSuffix "-" }}
+  labels:
+    {{- include "homelab.labels" $root | nindent 4 }}
+    app.kubernetes.io/component: {{ $key }}
+  annotations:
+    helm.sh/hook: {{ $job.hook | default "post-install,post-upgrade" }}
+    helm.sh/hook-weight: {{ $job.hookWeight | default 0 | quote }}
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: {{ $job.backoffLimit | default 3 }}
+  activeDeadlineSeconds: {{ $job.activeDeadlineSeconds | default 900 }}
+  template:
+    metadata:
+      labels:
+        # Not the workload's labels, so its Service and NetworkPolicy never pick this pod
+        app.kubernetes.io/name: {{ printf "%s-%s" (include "homelab.name" $root) $key | trunc 63 | trimSuffix "-" }}
+        app.kubernetes.io/instance: {{ $root.Release.Name }}
+        app.kubernetes.io/component: {{ $key }}
+    spec:
+      restartPolicy: Never
+      {{- include "app.podSettings" $root | trim | nindent 6 }}
+      containers:
+        {{- include "app.container" (dict "root" $root "name" $key "spec" $job "configFiles" $job.configFiles "persistence" $job.persistence "volumeMounts" $job.volumeMounts) | nindent 8 }}
+      {{- include "app.volumes" (dict "root" $root "configFiles" $job.configFiles "persistence" $job.persistence "extra" $job.volumes) | nindent 6 }}
+{{- end }}
+{{- range $key := keys (.Values.cronJobs | default dict) | sortAlpha }}
+{{- $job := index $.Values.cronJobs $key }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ printf "%s-%s" (include "homelab.name" $root) $key | trunc 52 | trimSuffix "-" }}
+  labels:
+    {{- include "homelab.labels" $root | nindent 4 }}
+    app.kubernetes.io/component: {{ $key }}
+spec:
+  schedule: {{ required (printf "cronJobs.%s.schedule is required" $key) $job.schedule | quote }}
+  {{- with $root.Values.global.timezone }}
+  timeZone: {{ . | quote }}
+  {{- end }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: {{ $job.backoffLimit | default 2 }}
+      activeDeadlineSeconds: {{ $job.activeDeadlineSeconds | default 3600 }}
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: {{ printf "%s-%s" (include "homelab.name" $root) $key | trunc 63 | trimSuffix "-" }}
+            app.kubernetes.io/instance: {{ $root.Release.Name }}
+            app.kubernetes.io/component: {{ $key }}
+        spec:
+          restartPolicy: Never
+          {{- include "app.podSettings" $root | trim | nindent 10 }}
+          containers:
+            {{- include "app.container" (dict "root" $root "name" $key "spec" $job "configFiles" $job.configFiles "persistence" $job.persistence "volumeMounts" $job.volumeMounts) | nindent 12 }}
+          {{- include "app.volumes" (dict "root" $root "configFiles" $job.configFiles "persistence" $job.persistence "extra" $job.volumes) | nindent 10 }}
+{{- end }}
