@@ -14,7 +14,8 @@ image:
   tag: ""
   pullPolicy: IfNotPresent
 
-# Deployment, or StatefulSet for a database-like service that keeps one volume per pod
+# Deployment, StatefulSet for a database-like service that keeps one volume per pod, or None
+# for a release of jobs only (e.g. database migrations)
 kind: Deployment
 replicas: 1
 
@@ -112,6 +113,9 @@ cronJobs: {}
 #    schedule: "0 3 * * *"
 
 podAnnotations: {}
+# Kubernetes' <SERVICE>_PORT-style variables, off: images that read every variable with their
+# prefix (e.g. Kafka's KAFKA_*) would take them as settings
+enableServiceLinks: false
 podLabels: {}
 nodeSelector: {}
 tolerations: []

@@ -1,7 +1,8 @@
 {{- $kind := .Values.kind -}}
-{{- if not (has $kind (list "Deployment" "StatefulSet")) -}}
-{{- fail (printf "kind must be Deployment or StatefulSet, not %q" $kind) -}}
+{{- if not (has $kind (list "Deployment" "StatefulSet" "None")) -}}
+{{- fail (printf "kind must be Deployment, StatefulSet or None, not %q" $kind) -}}
 {{- end -}}
+{{- if ne $kind "None" -}}
 {{- $configNames := keys (.Values.configFiles | default dict) | sortAlpha -}}
 {{- $persistenceNames := keys (.Values.persistence | default dict) | sortAlpha -}}
 {{- $hostPorts := false -}}
@@ -79,3 +80,4 @@ spec:
             storage: {{ required (printf "persistence.%s.size is required" $name) $volume.size }}
     {{- end }}
   {{- end }}
+{{- end }}

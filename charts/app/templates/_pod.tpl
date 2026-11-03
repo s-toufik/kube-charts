@@ -142,6 +142,8 @@ automountServiceAccountToken: true
 {{- else }}
 automountServiceAccountToken: {{ .Values.serviceAccount.automount | default false }}
 {{- end }}
+# No <SERVICE>_PORT / _SERVICE_HOST variables: some images read every variable with their prefix
+enableServiceLinks: {{ .Values.enableServiceLinks }}
 securityContext:
   {{- include "homelab.podSecurityContext" (dict "podSecurityContext" .Values.podSecurityContext) | nindent 2 }}
 {{- with .Values.nodeSelector }}

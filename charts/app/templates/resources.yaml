@@ -1,5 +1,5 @@
 {{- $name := include "homelab.name" . -}}
-{{- if and .Values.service.enabled .Values.ports }}
+{{- if and .Values.service.enabled .Values.ports (ne .Values.kind "None") }}
 apiVersion: v1
 kind: Service
 metadata:

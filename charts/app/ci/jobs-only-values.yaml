@@ -1,0 +1,10 @@
+# A release with no workload: database migrations run as a job on every install and upgrade
+kind: None
+image: {repository: ghcr.io/amacneil/dbmate, tag: "2.36.0"}
+configFiles:
+  migrations: {mountPath: /db/migrations, files: {001_init.sql: "-- migrate:up\nSELECT 1;\n-- migrate:down\n"}}
+jobs:
+  migrate:
+    args: [migrate]
+    configFiles: [migrations]
+    env: {DBMATE_MIGRATIONS_DIR: /db/migrations}
