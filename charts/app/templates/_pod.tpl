@@ -144,6 +144,11 @@ automountServiceAccountToken: {{ .Values.serviceAccount.automount | default fals
 {{- end }}
 # No <SERVICE>_PORT / _SERVICE_HOST variables: some images read every variable with their prefix
 enableServiceLinks: {{ .Values.enableServiceLinks }}
+{{- if .Values.hostNetwork }}
+# The server's own network; Service names still resolve through the cluster's DNS
+hostNetwork: true
+dnsPolicy: ClusterFirstWithHostNet
+{{- end }}
 securityContext:
   {{- include "homelab.podSecurityContext" (dict "podSecurityContext" .Values.podSecurityContext) | nindent 2 }}
 {{- with .Values.nodeSelector }}

@@ -2,7 +2,7 @@ apiVersion: v2
 name: app
 description: Runs one container image on the homelab — the chart behind every app and service
 type: application
-version: 0.2.0
+version: 0.3.0
 appVersion: "0.0.0"
 dependencies:
   - name: homelab-lib

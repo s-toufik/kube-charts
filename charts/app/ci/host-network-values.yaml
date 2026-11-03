@@ -1,0 +1,5 @@
+# The server's own network (Alloy): host networking with the cluster's DNS
+image: {repository: grafana/alloy, tag: v1.9.2}
+hostNetwork: true
+ports:
+  - {name: http, port: 12345}

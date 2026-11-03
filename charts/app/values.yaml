@@ -116,6 +116,9 @@ podAnnotations: {}
 # Kubernetes' <SERVICE>_PORT-style variables, off: images that read every variable with their
 # prefix (e.g. Kafka's KAFKA_*) would take them as settings
 enableServiceLinks: false
+# The server's own network instead of the pod's (e.g. to measure the server's network traffic).
+# Listen on the node address 10.250.0.1, never on every address.
+hostNetwork: false
 podLabels: {}
 nodeSelector: {}
 tolerations: []

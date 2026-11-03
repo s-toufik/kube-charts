@@ -164,6 +164,7 @@
     "cronJobs": { "type": "object", "additionalProperties": { "$ref": "#/definitions/job" } },
     "podAnnotations": { "type": "object" },
     "enableServiceLinks": { "type": "boolean" },
+    "hostNetwork": { "type": "boolean" },
     "podLabels": { "type": "object" },
     "nodeSelector": { "type": "object" },
     "tolerations": { "type": "array" },
